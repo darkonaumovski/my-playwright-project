@@ -1,0 +1,23 @@
+# Dependencies
+my-playwright-project/node_modules/
+
+# Playwright output
+my-playwright-project/playwright-report/
+my-playwright-project/test-results/
+my-playwright-project/blob-report/
+
+# Environment and local configuration
+my-playwright-project/.env
+my-playwright-project/.env.*
+!my-playwright-project/.env.example
+
+# TypeScript build output
+my-playwright-project/dist/
+my-playwright-project/build/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

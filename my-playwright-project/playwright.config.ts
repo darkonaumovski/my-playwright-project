@@ -10,7 +10,13 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   timeout: 30_000,
   reporter: process.env.CI ? [['dot'], ['html', { open: 'never' }]] : 'html',
-  use: { baseURL, trace: 'on-first-retry', screenshot: 'only-on-failure', video: 'retain-on-failure' },
+  use: {
+    baseURL,
+    testIdAttribute: 'data-test',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure'
+  },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } }

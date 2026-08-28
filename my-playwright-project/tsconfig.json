@@ -6,7 +6,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["@playwright/test"]
+    "types": ["node", "@playwright/test"]
   },
   "include": ["tests", "pages", "fixtures.ts", "playwright.config.ts"]
 }

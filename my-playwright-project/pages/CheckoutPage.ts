@@ -3,11 +3,11 @@ import { expect, Page } from '@playwright/test';
 export class CheckoutPage {
   constructor(private readonly page: Page) {}
 
-  readonly firstName = this.page.getByTestId('firstName');
-  readonly lastName = this.page.getByTestId('lastName');
-  readonly postalCode = this.page.getByTestId('postalCode');
-  readonly continueButton = this.page.getByTestId('continue');
-  readonly finishButton = this.page.getByTestId('finish');
+  get firstName() { return this.page.getByTestId('firstName'); }
+  get lastName() { return this.page.getByTestId('lastName'); }
+  get postalCode() { return this.page.getByTestId('postalCode'); }
+  get continueButton() { return this.page.getByTestId('continue'); }
+  get finishButton() { return this.page.getByTestId('finish'); }
 
   async fillInformation(firstName: string, lastName: string, postalCode: string) {
     await this.firstName.fill(firstName);
