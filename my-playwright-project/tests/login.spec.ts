@@ -1,0 +1,1 @@
+﻿import{test,expect}from'@playwright/test';import{LoginPage}from'../pages/LoginPage';test('login',async({page})=>{let l=new LoginPage(page);await l.goto();await l.login('standard_user','secret_sauce');await l.expectLoggedIn();await expect(page.getByText('Products')).toBeVisible()})
