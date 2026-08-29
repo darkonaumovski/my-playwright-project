@@ -1,8 +1,15 @@
 import { test } from '../fixtures';
 import { InventoryPage } from '../pages/InventoryPage';
 
-test('user can view inventory', async ({ page, loggedInPage }) => {
-  void loggedInPage;
-  const inventory = new InventoryPage(page);
-  await inventory.expectLoaded();
+test.describe('Inventory', () => {
+  let inventory: InventoryPage;
+
+  test.beforeEach(async ({ page, loggedInPage }) => {
+    void loggedInPage;
+    inventory = new InventoryPage(page);
+  });
+
+  test('user can view inventory', async () => {
+    await inventory.expectLoaded();
+  });
 });
