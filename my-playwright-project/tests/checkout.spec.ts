@@ -1,4 +1,4 @@
-import { test } from '../fixtures';
+import { test, expect } from '../fixtures';
 import { InventoryPage } from '../pages/InventoryPage';
 import { CartPage } from '../pages/CartPage';
 import { CheckoutPage } from '../pages/CheckoutPage';
@@ -22,5 +22,60 @@ test.describe('Checkout', () => {
     await cart.checkout();
     await checkout.fillInformation('Test', 'User', '00-001');
     await checkout.finish();
+  });
+
+  test('requires every customer information field', async ({ page }) => {
+    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+    await inventory.openCart();
+    await cart.checkout();
+
+    await checkout.continueButton.click();
+    await expect(checkout.errorMessage).toHaveText('Error: First Name is required');
+    await checkout.firstName.fill('Test');
+    await checkout.continueButton.click();
+    await expect(checkout.errorMessage).toHaveText('Error: Last Name is required');
+    await checkout.lastName.fill('User');
+    await checkout.continueButton.click();
+    await expect(checkout.errorMessage).toHaveText('Error: Postal Code is required');
+    await expect(page).toHaveURL(/checkout-step-one\.html/);
+  });
+
+  test('shows correct checkout totals and supports cancellation', async ({ page }) => {
+    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+    await inventory.openCart();
+    await cart.checkout();
+    await checkout.fillInformation('Test', 'User', '00-001');
+
+    await expect(checkout.itemTotal).toHaveText('Item total: $29.99');
+    await expect(checkout.taxTotal).toHaveText('Tax: $2.40');
+    await expect(checkout.orderTotal).toHaveText('Total: $32.39');
+    await checkout.cancel();
+    await expect(page).toHaveURL(/inventory\.html/);
+  });
+
+  test('returns home with an empty cart after checkout completion', async ({ page }) => {
+    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+    await inventory.openCart();
+    await cart.checkout();
+    await checkout.fillInformation('Test', 'User', '00-001');
+    await checkout.finish();
+
+    await page.getByTestId('back-to-products').click();
+    await expect(page).toHaveURL(/inventory\.html/);
+    await expect(page.getByTestId('shopping-cart-badge')).toHaveCount(0);
+  });
+
+  test('generates a PDF order after checkout completion', async ({ page }) => {
+    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+    await inventory.openCart();
+    await cart.checkout();
+    await checkout.fillInformation('Test', 'User', '00-001');
+    await checkout.finish();
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('generate-pdf-order').click()
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
   });
 });
