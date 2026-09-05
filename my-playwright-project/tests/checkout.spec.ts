@@ -1,22 +1,8 @@
-import { test, expect } from '../fixtures';
-import { InventoryPage } from '../pages/InventoryPage';
-import { CartPage } from '../pages/CartPage';
-import { CheckoutPage } from '../pages/CheckoutPage';
+import { authenticatedTest as test, expect } from '../fixtures';
 
 test.describe('Checkout', () => {
-  let inventory: InventoryPage;
-  let cart: CartPage;
-  let checkout: CheckoutPage;
-
-  test.beforeEach(async ({ page, loggedInPage }) => {
-    void loggedInPage;
-    inventory = new InventoryPage(page);
-    cart = new CartPage(page);
-    checkout = new CheckoutPage(page);
-  });
-
-  test('user can complete checkout', async () => {
-    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+  test('user can complete checkout', async ({ inventory, cart, checkout }) => {
+    await inventory.addProduct('sauce-labs-backpack');
     await inventory.openCart();
     await cart.expectProductVisible('Sauce Labs Backpack');
     await cart.checkout();
@@ -24,8 +10,8 @@ test.describe('Checkout', () => {
     await checkout.finish();
   });
 
-  test('requires every customer information field', async ({ page }) => {
-    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+  test('requires every customer information field', async ({ page, inventory, cart, checkout }) => {
+    await inventory.addProduct('sauce-labs-backpack');
     await inventory.openCart();
     await cart.checkout();
 
@@ -40,8 +26,8 @@ test.describe('Checkout', () => {
     await expect(page).toHaveURL(/checkout-step-one\.html/);
   });
 
-  test('shows correct checkout totals and supports cancellation', async ({ page }) => {
-    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+  test('shows correct checkout totals and supports cancellation', async ({ page, inventory, cart, checkout }) => {
+    await inventory.addProduct('sauce-labs-backpack');
     await inventory.openCart();
     await cart.checkout();
     await checkout.fillInformation('Test', 'User', '00-001');
@@ -53,29 +39,26 @@ test.describe('Checkout', () => {
     await expect(page).toHaveURL(/inventory\.html/);
   });
 
-  test('returns home with an empty cart after checkout completion', async ({ page }) => {
-    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+  test('returns home with an empty cart after checkout completion', async ({ page, inventory, cart, checkout, header }) => {
+    await inventory.addProduct('sauce-labs-backpack');
     await inventory.openCart();
     await cart.checkout();
     await checkout.fillInformation('Test', 'User', '00-001');
     await checkout.finish();
 
-    await page.getByTestId('back-to-products').click();
+    await checkout.backToProducts();
     await expect(page).toHaveURL(/inventory\.html/);
-    await expect(page.getByTestId('shopping-cart-badge')).toHaveCount(0);
+    await expect(header.cartBadge).toHaveCount(0);
   });
 
-  test('generates a PDF order after checkout completion', async ({ page }) => {
-    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+  test('generates a PDF order after checkout completion', async ({ inventory, cart, checkout }) => {
+    await inventory.addProduct('sauce-labs-backpack');
     await inventory.openCart();
     await cart.checkout();
     await checkout.fillInformation('Test', 'User', '00-001');
     await checkout.finish();
 
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.getByTestId('generate-pdf-order').click()
-    ]);
+    const download = await checkout.downloadOrder();
     expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
   });
 });

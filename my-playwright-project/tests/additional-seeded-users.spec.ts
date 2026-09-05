@@ -1,27 +1,20 @@
-import { expect, Page, test } from '@playwright/test';
-import { LoginPage } from '../pages/LoginPage';
-
-async function login(page: Page, username: string) {
-  const loginPage = new LoginPage(page);
-  await loginPage.goto();
-  await loginPage.login(username, 'secret_sauce');
-  await loginPage.expectLoggedIn();
-}
+import { expect, test } from '../fixtures';
+import { demoPassword } from '../test-data/users';
 
 test.describe('Seeded-user regression coverage', () => {
-  test('problem_user exposes the current broken-image defect consistently', async ({ page }) => {
-    await login(page, 'problem_user');
+  test('problem_user exposes the current broken-image defect consistently', async ({ page, login }) => {
+    await login.signIn('problem_user', demoPassword);
     const sources = await page.locator('[data-test="inventory-item"] img').evaluateAll(images => images.map(image => image.getAttribute('src')));
     expect(sources).toHaveLength(6);
     expect(new Set(sources).size).toBe(1);
     expect(sources[0]).toContain('sl-404');
   });
 
-  test('visual_user exposes the current list/detail price inconsistency', async ({ page }) => {
-    await login(page, 'visual_user');
-    const listPrice = await page.getByTestId('inventory-item').first().getByTestId('inventory-item-price').innerText();
-    await page.getByTestId('item-4-title-link').click();
-    const detailPrice = await page.getByTestId('inventory-item-price').innerText();
+  test('visual_user exposes the current list/detail price inconsistency', async ({ login, inventory, productDetails }) => {
+    await login.signIn('visual_user', demoPassword);
+    const listPrice = await inventory.items.first().getByTestId('inventory-item-price').innerText();
+    await inventory.openProduct(4);
+    const detailPrice = await productDetails.price.innerText();
     expect(listPrice).toMatch(/^\$\d+(?:\.\d{1,2})?$/);
     expect(detailPrice).toBe('$29.99');
     expect(listPrice).not.toBe(detailPrice);
@@ -35,24 +28,24 @@ test.describe('Seeded-user regression coverage', () => {
     ['sauce-labs-onesie', true],
     ['test.allthethings()-t-shirt-(red)', false]
   ] as const) {
-    test(`error_user add-to-cart behavior for ${slug}`, async ({ page }) => {
-      await login(page, 'error_user');
-      await page.getByTestId(`add-to-cart-${slug}`).click();
-      const removeButton = page.getByTestId(`remove-${slug}`);
+    test(`error_user add-to-cart behavior for ${slug}`, async ({ login, inventory, header }) => {
+      await login.signIn('error_user', demoPassword);
+      await inventory.addProduct(slug);
+      const removeButton = inventory.removeButton(slug);
       if (shouldAdd) {
         await expect(removeButton).toBeVisible();
-        await expect(page.getByTestId('shopping-cart-badge')).toHaveText('1');
+        await expect(header.cartBadge).toHaveText('1');
       } else {
         await expect(removeButton).toHaveCount(0);
-        await expect(page.getByTestId('shopping-cart-badge')).toHaveCount(0);
+        await expect(header.cartBadge).toHaveCount(0);
       }
     });
   }
 
-  test('performance_glitch_user eventually reaches a usable inventory page', async ({ page }) => {
+  test('performance_glitch_user eventually reaches a usable inventory page', async ({ login, inventory }) => {
     test.setTimeout(60_000);
-    await login(page, 'performance_glitch_user');
-    await expect(page.getByTestId('inventory-list')).toBeVisible();
-    await expect(page.getByTestId('inventory-item')).toHaveCount(6);
+    await login.signIn('performance_glitch_user', demoPassword);
+    await expect(inventory.inventoryList).toBeVisible();
+    await expect(inventory.items).toHaveCount(6);
   });
 });
