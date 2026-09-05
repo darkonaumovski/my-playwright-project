@@ -6,6 +6,7 @@ export class LoginPage {
   get username() { return this.page.getByTestId('username'); }
   get password() { return this.page.getByTestId('password'); }
   get loginButton() { return this.page.getByTestId('login-button'); }
+  get dismissErrorButton() { return this.page.getByTestId('error-button'); }
   get errorMessage() { return this.page.getByTestId('error'); }
 
   async goto() {
@@ -20,6 +21,12 @@ export class LoginPage {
 
   async expectLoggedIn() {
     await expect(this.page).toHaveURL(/inventory/);
+  }
+
+  async signIn(username: string, password: string) {
+    await this.goto();
+    await this.login(username, password);
+    await this.expectLoggedIn();
   }
 
   async expectLoginError(message: string) {

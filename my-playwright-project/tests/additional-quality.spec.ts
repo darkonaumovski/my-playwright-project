@@ -1,26 +1,21 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, test } from '../fixtures';
 import { LoginPage } from '../pages/LoginPage';
-
-async function login(page: Page) {
-  const loginPage = new LoginPage(page);
-  await loginPage.goto();
-  await loginPage.login('standard_user', 'secret_sauce');
-  await loginPage.expectLoggedIn();
-}
+import { InventoryPage } from '../pages/InventoryPage';
+import { demoPassword } from '../test-data/users';
 
 test.describe('Additional quality coverage', () => {
-  test('dismisses the menu with Escape and keeps focus in the menu', async ({ page }) => {
-    await login(page);
-    await page.getByRole('button', { name: 'Open Menu' }).click();
-    await expect(page.getByRole('navigation')).toBeVisible();
-    await expect(page.getByTestId('inventory-sidebar-link')).toBeFocused();
-    await page.getByRole('button', { name: 'Close Menu' }).press('Escape');
-    await expect(page.getByRole('navigation')).toBeHidden();
+  test('dismisses the menu with Escape and keeps focus in the menu', async ({ login, header }) => {
+    await login.signIn('standard_user', demoPassword);
+    await header.openMenu();
+    await expect(header.navigation).toBeVisible();
+    await expect(header.allItemsLink).toBeFocused();
+    await header.closeMenuButton.press('Escape');
+    await expect(header.navigation).toBeHidden();
   });
 
-  test('keeps the inventory usable at a mobile viewport without horizontal overflow', async ({ page }) => {
+  test('keeps the inventory usable at a mobile viewport without horizontal overflow', async ({ page, login, header, inventory }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await login(page);
+    await login.signIn('standard_user', demoPassword);
     const layout = await page.evaluate(() => ({
       viewportWidth: document.documentElement.clientWidth,
       contentWidth: document.documentElement.scrollWidth,
@@ -28,8 +23,8 @@ test.describe('Additional quality coverage', () => {
     }));
     expect(layout.contentWidth).toBeLessThanOrEqual(layout.viewportWidth);
     expect(layout.productCount).toBe(6);
-    await expect(page.getByRole('button', { name: 'Open Menu' })).toBeVisible();
-    await expect(page.getByTestId('product-sort-container')).toBeVisible();
+    await expect(header.openMenuButton).toBeVisible();
+    await expect(inventory.sortSelect).toBeVisible();
   });
 
   test('isolates carts between two browser contexts', async ({ browser }) => {
@@ -38,15 +33,17 @@ test.describe('Additional quality coverage', () => {
     try {
       const pageOne = await contextOne.newPage();
       const pageTwo = await contextTwo.newPage();
-      await login(pageOne);
-      await login(pageTwo);
-      await pageOne.getByTestId('add-to-cart-sauce-labs-backpack').click();
-      await pageTwo.getByTestId('add-to-cart-sauce-labs-bike-light').click();
+      await new LoginPage(pageOne).signIn('standard_user', demoPassword);
+      const inventoryOne = new InventoryPage(pageOne);
+      await new LoginPage(pageTwo).signIn('standard_user', demoPassword);
+      const inventoryTwo = new InventoryPage(pageTwo);
+      await inventoryOne.addProduct('sauce-labs-backpack');
+      await inventoryTwo.addProduct('sauce-labs-bike-light');
 
-      await expect(pageOne.getByTestId('shopping-cart-badge')).toHaveText('1');
-      await expect(pageTwo.getByTestId('shopping-cart-badge')).toHaveText('1');
-      await pageOne.getByTestId('shopping-cart-link').click();
-      await pageTwo.getByTestId('shopping-cart-link').click();
+      await expect(inventoryOne.cartBadge).toHaveText('1');
+      await expect(inventoryTwo.cartBadge).toHaveText('1');
+      await inventoryOne.openCart();
+      await inventoryTwo.openCart();
       await expect(pageOne.getByText('Sauce Labs Backpack', { exact: true })).toBeVisible();
       await expect(pageOne.getByText('Sauce Labs Bike Light', { exact: true })).toHaveCount(0);
       await expect(pageTwo.getByText('Sauce Labs Bike Light', { exact: true })).toBeVisible();

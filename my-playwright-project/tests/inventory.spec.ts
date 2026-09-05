@@ -1,32 +1,17 @@
-import { expect } from '@playwright/test';
-import { test } from '../fixtures';
-import { InventoryPage } from '../pages/InventoryPage';
+import { authenticatedTest as test, expect } from '../fixtures';
+import { products as catalogue } from '../test-data/products';
 
-const products = [
-  'Sauce Labs Backpack',
-  'Sauce Labs Bike Light',
-  'Sauce Labs Bolt T-Shirt',
-  'Sauce Labs Fleece Jacket',
-  'Sauce Labs Onesie',
-  'Test.allTheThings() T-Shirt (Red)'
-];
+const products = catalogue.map(product => product.name);
 
 test.describe('Inventory', () => {
-  let inventory: InventoryPage;
-
-  test.beforeEach(async ({ page, loggedInPage }) => {
-    void loggedInPage;
-    inventory = new InventoryPage(page);
-  });
-
-  test('shows the complete product catalogue', async ({ page }) => {
+  test('shows the complete product catalogue', async ({ page, inventory }) => {
     await inventory.expectLoaded();
-    await expect(page.getByTestId('inventory-item')).toHaveCount(6);
+    await expect(inventory.items).toHaveCount(6);
     await expect(inventory.itemNames).toHaveText(products);
     await expect(page.getByTestId(/add-to-cart-/)).toHaveCount(6);
   });
 
-  test('sorts products by name and price', async () => {
+  test('sorts products by name and price', async ({ inventory }) => {
     await inventory.sortBy('za');
     await expect(inventory.itemNames).toHaveText([...products].reverse());
 
@@ -43,29 +28,29 @@ test.describe('Inventory', () => {
     ]);
   });
 
-  test('opens a matching product detail page and returns to products', async ({ page }) => {
+  test('opens a matching product detail page and returns to products', async ({ page, inventory, productDetails }) => {
     await inventory.openProduct(4);
     await expect(page).toHaveURL(/inventory-item\.html\?id=4/);
-    await expect(page.getByTestId('inventory-item-name')).toHaveText('Sauce Labs Backpack');
-    await expect(page.getByTestId('inventory-item-price')).toHaveText('$29.99');
-    await page.getByTestId('back-to-products').click();
+    await expect(productDetails.name).toHaveText('Sauce Labs Backpack');
+    await expect(productDetails.price).toHaveText('$29.99');
+    await productDetails.backToProducts();
     await inventory.expectLoaded();
   });
 
-  test('adds and removes a product from inventory', async ({ page }) => {
-    await inventory.addProductToCart('add-to-cart-sauce-labs-backpack');
+  test('adds and removes a product from inventory', async ({ inventory }) => {
+    await inventory.addProduct('sauce-labs-backpack');
     await expect(inventory.cartBadge).toHaveText('1');
-    await expect(page.getByTestId('remove-sauce-labs-backpack')).toBeVisible();
+    await expect(inventory.removeButton('sauce-labs-backpack')).toBeVisible();
 
-    await page.getByTestId('remove-sauce-labs-backpack').click();
+    await inventory.removeProduct('sauce-labs-backpack');
     await expect(inventory.cartBadge).toHaveCount(0);
-    await expect(page.getByTestId('add-to-cart-sauce-labs-backpack')).toBeVisible();
+    await expect(inventory.addButton('sauce-labs-backpack')).toBeVisible();
   });
 
-  test('adds a product from its detail page', async ({ page }) => {
+  test('adds a product from its detail page', async ({ inventory, productDetails }) => {
     await inventory.openProduct(4);
-    await page.getByTestId('add-to-cart').click();
+    await productDetails.addToCart();
     await expect(inventory.cartBadge).toHaveText('1');
-    await expect(page.getByTestId('remove')).toBeVisible();
+    await expect(productDetails.removeButton).toBeVisible();
   });
 });

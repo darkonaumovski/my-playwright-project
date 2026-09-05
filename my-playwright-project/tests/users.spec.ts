@@ -1,15 +1,7 @@
-import { test } from '../fixtures';
-import { InventoryPage } from '../pages/InventoryPage';
+import { authenticatedTest as test } from '../fixtures';
 
 test.describe('Inventory', () => {
-  let inventory: InventoryPage;
-
-  test.beforeEach(async ({ page, loggedInPage }) => {
-    void loggedInPage;
-    inventory = new InventoryPage(page);
-  });
-
-  test('user can view inventory', async () => {
+  test('user can view inventory', async ({ inventory }) => {
     await inventory.expectLoaded();
   });
 });
