@@ -1,10 +1,10 @@
-# SauceDemo Playwright Test Automation
+# SauceDemo Playwright test automation
 
-End-to-end test framework for [SauceDemo](https://www.saucedemo.com), built with Playwright and TypeScript. The suite exercises authentication, inventory, product details, cart behavior, checkout, shared navigation, seeded demo-user behavior, responsive layout, and browser-context isolation in Chromium and Firefox.
+Maintainable end-to-end coverage for [SauceDemo](https://www.saucedemo.com) using Playwright and strict TypeScript. The suite covers authentication, inventory, product details, carts, checkout, navigation, responsive behavior, downloads, and the application's seeded defect accounts in Chromium and Firefox.
 
 ## Prerequisites
 
-- Node.js 18 or newer
+- Node.js 20 or newer
 - npm
 
 ## Setup
@@ -14,149 +14,126 @@ npm ci
 npx playwright install
 ```
 
-Playwright's Linux system dependencies may also be required in a fresh CI environment:
+Linux CI runners may also need operating-system packages:
 
 ```bash
 npx playwright install --with-deps
 ```
 
-## Running the tests
+The framework has safe SauceDemo defaults. For local overrides, copy `.env.example` to `.env` and replace the placeholder values. `.env` is ignored by Git and loaded automatically; never commit private credentials.
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm test` | Run every test in Chromium and Firefox |
+| `npm run test:chromium` | Run the complete suite in Chromium only |
+| `npm run test:smoke` | Run scenarios tagged `@smoke` |
+| `npm run test:headed` | Run with visible browser windows |
+| `npm run test:ui` | Open Playwright UI mode |
+| `npm run typecheck` | Run strict TypeScript validation without emitting files |
+| `npm run lint` | Run typed TypeScript and Playwright lint rules |
+| `npm run format` | Check TypeScript and JSON formatting |
+| `npm run format:fix` | Apply formatting fixes |
+| `npm run check` | Run formatting, linting, type checking, and test discovery |
+
+Useful focused commands:
 
 ```bash
-# Run the complete suite in Chromium and Firefox
-npm test
-
-# Run with visible browser windows
-npm run test:headed
-
-# Open Playwright's interactive UI
-npm run test:ui
-
-# Type-check the framework without emitting files
-npm run typecheck
-```
-
-Useful Playwright commands:
-
-```bash
-# Run one spec file
-npx playwright test tests/checkout.spec.ts
-
-# Run one browser project
-npx playwright test --project=chromium
-
-# Run tests whose title matches a phrase
+npx playwright test tests/checkout.spec.ts --project=chromium
 npx playwright test -g "user can complete checkout"
-
-# Open the latest HTML report
 npx playwright show-report
 ```
 
-## Configuration
+## Environment configuration
 
-The suite uses `https://www.saucedemo.com` and the public `standard_user` account by default. Override these values through environment variables:
+Runtime values are parsed and validated in `config/environment.ts`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `BASE_URL` | `https://www.saucedemo.com` | Application under test |
-| `TEST_USERNAME` | `standard_user` | Default authenticated-test account |
-| `TEST_PASSWORD` | `secret_sauce` | Default authenticated-test password |
-| `CI` | unset | Enables two retries, one worker, dot + HTML reporters, and rejects focused tests |
+| `BASE_URL` | `https://www.saucedemo.com` | Application URL; must use HTTP or HTTPS |
+| `TEST_USERNAME` | `standard_user` | Account used by authenticated fixtures |
+| `TEST_PASSWORD` | SauceDemo's public demo password | Password used by authenticated fixtures |
+| `CI` | unset | Values `1`, `true`, or `yes` enable CI behavior |
+| `CI_WORKERS` | Playwright default | Optional positive worker count |
 
-PowerShell example:
+CI mode rejects focused tests and enables two retries. Retries remain disabled locally. Worker count is configurable instead of being forced to one, so the same configuration works on small and large runners.
 
-```powershell
-$env:BASE_URL = 'https://www.saucedemo.com'
-$env:TEST_USERNAME = 'standard_user'
-$env:TEST_PASSWORD = 'secret_sauce'
-npm test
-```
-
-Do not commit private credentials. SauceDemo's credentials in this repository are public test data supplied by the demo application.
-
-## Project structure
+## Structure
 
 ```text
 .
-|-- fixtures.ts                 # Test-scoped page objects and login fixtures
-|-- pages/                      # Page Object Models
-|   |-- components/ShopHeader.ts
+|-- config/
+|   `-- environment.ts         # Validated runtime settings; no secrets logged
+|-- fixtures/
+|   `-- index.ts               # Typed test-scoped objects and authenticated test export
+|-- pages/
+|   |-- components/
+|   |   `-- ShopHeader.ts      # Shared menu and cart header controls
 |   |-- LoginPage.ts
 |   |-- InventoryPage.ts
 |   |-- ProductDetailsPage.ts
 |   |-- CartPage.ts
 |   `-- CheckoutPage.ts
-|-- test-data/                  # Shared users and product expectations
-|-- tests/                      # Playwright scenarios
-|-- playwright.config.ts        # Browser, reporter, artifact, and CI settings
-`-- tsconfig.json               # Strict TypeScript configuration
+|-- test-data/
+|   |-- checkout.ts            # Shared checkout input
+|   |-- products.ts            # Read-only catalogue expectations
+|   `-- users.ts               # Public SauceDemo account data
+|-- tests/                     # Behavior-focused specifications
+|-- eslint.config.mjs          # Typed TypeScript and Playwright linting
+|-- playwright.config.ts       # Projects, reporters, retries, and artifacts
+`-- tsconfig.json              # Strict compiler settings
 ```
 
-Page objects contain reusable selectors and interactions. Business expectations stay in the tests. All fixtures are test-scoped, so each test receives an isolated browser page and fresh object instances.
+The repository is small enough that separate `api/`, `builders/`, `constants/`, and `types/` folders would add ceremony without demonstrated reuse. Add them only when a real service client or shared domain model appears.
 
-## Fixtures
+## Fixtures and page objects
 
-Use `authenticatedTest` for shopping flows that should start on the inventory page:
+Import `authenticatedTest` for scenarios that start on the inventory page:
 
 ```typescript
-import { authenticatedTest as test, expect } from '../fixtures';
+import { authenticatedTest as test, expect } from "../fixtures";
 
-test('adds an item', async ({ inventory, cart, header }) => {
-  await inventory.addProduct('sauce-labs-backpack');
-  await header.openCart();
-  await expect(cart.cartItems).toHaveCount(1);
+test("adds an item", async ({ inventory, header }) => {
+  await inventory.addProduct("sauce-labs-backpack");
+  await expect(header.cartBadge).toHaveText("1");
 });
 ```
 
-Use the regular `test` export for login, logged-out, or explicit seeded-account scenarios:
+Import `test` for login, guest-route, and explicit seeded-account coverage. Page-object actions do not contain test assertions. Tests own business expectations, while `LoginPage.signIn` uses a targeted URL wait so an authenticated fixture is ready before use.
 
-```typescript
-import { test, expect } from '../fixtures';
+Selectors prefer roles and placeholders. SauceDemo's stable `data-test` values remain appropriate where controls have no useful accessible name or where a product-specific action must be unique.
 
-test('shows a required username error', async ({ login }) => {
-  await login.goto();
-  await login.login('', '');
-  await expect(login.errorMessage).toContainText('Username is required');
-});
-```
+## API and network testing
 
-Available fixtures are `login`, `inventory`, `productDetails`, `cart`, `checkout`, `header`, `loggedInPage`, and configurable `credentials`.
+SauceDemo does not expose a documented application API in this repository. Creating an `APIRequestContext` client or mocked endpoint would test an invented contract, so no `api/` layer or interception suite is included. If the application later gains a supported service API:
 
-## Coverage
+- create focused clients under `api/<domain>/` using a fixture-provided `APIRequestContext`;
+- type the important request and response contracts;
+- register precise `page.route()` handlers before the triggering action;
+- keep mocked UI, API integration, and full E2E suites explicitly separated; and
+- unroute temporary handlers after each scenario.
 
-The suite includes:
+## Reports and debugging
 
-- Valid, invalid, locked, unusual-input, keyboard, and protected-route authentication cases
-- Complete product catalogue, sorting, detail-page, add/remove, and duplicate-item checks
-- Empty, single-item, and multi-item cart behavior and navigation
-- Checkout validation, totals, cancellation, completion, idempotency, and PDF download checks
-- Menu, logout, reset-state, external-link, responsive-layout, and session-isolation checks
-- Regression coverage for SauceDemo's `problem_user`, `visual_user`, `error_user`, and `performance_glitch_user` seeded behaviors
-- Desktop Chrome and Desktop Firefox projects
-
-Some seeded accounts intentionally expose defects in SauceDemo. Their tests document the current demo behavior; they are not interchangeable with the standard happy-path account.
-
-## Reports and debugging artifacts
-
-The local reporter generates an HTML report in `playwright-report/`. On failure Playwright retains screenshots and videos; traces are captured on the first retry. Test artifacts are written beneath `test-results/`.
+Playwright writes artifacts to `test-results/` and the HTML report to `playwright-report/`; both are ignored. Failed attempts retain traces, screenshots, and videos.
 
 ```bash
 npx playwright show-report
 npx playwright show-trace test-results/<test-folder>/trace.zip
 ```
 
-## Adding tests
+## CI integration
 
-- Prefer `data-test` selectors; the configuration maps Playwright test IDs to that attribute.
-- Add shared product or user expectations to `test-data/` instead of duplicating literals.
-- Put reusable page interactions in the relevant page object or shared component.
-- Keep assertions describing business behavior in spec files.
-- Use `authenticatedTest` only when automatic login is part of the test precondition.
-- Keep each scenario isolated and safe for parallel execution.
+No CI provider configuration exists in this repository. A provider job should run `npm ci`, install the required Playwright browsers, execute `npm run check`, then run the desired test command. Upload `playwright-report/` and `test-results/` when the test step fails. Do not use unconditional-success flags. Set `CI_WORKERS` or Playwright sharding according to runner capacity.
 
-## Reference documentation
+## Adding coverage
 
-- [Framework architecture](FRAMEWORK_ARCHITECTURE.md)
-- [QA test catalogue](QA_TEST_CATALOG.md)
-- [Additional test scenarios](ADDITIONAL_TEST_SCENARIOS.md)
-- [Test execution report](TEST_EXECUTION_REPORT.md)
+- Keep tests isolated and parallel-safe.
+- Use the base `test` export unless authentication is truly a precondition.
+- Add business actions to the responsible page or component, not to a generic base page.
+- Keep assertions in specifications.
+- Prefer web-first assertions and event-specific waits; do not add fixed sleeps.
+- Add shared static expectations only after real duplication appears.
+
+See [FRAMEWORK_ARCHITECTURE.md](FRAMEWORK_ARCHITECTURE.md) for the assessment and architectural rationale, and [TEST_EXECUTION_REPORT.md](TEST_EXECUTION_REPORT.md) for the latest validation status.

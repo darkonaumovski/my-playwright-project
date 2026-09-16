@@ -1,32 +1,37 @@
-# Test Execution Report
+# Test execution report
 
-**Application:** SauceDemo  
-**Base URL:** https://www.saucedemo.com  
-**Executed:** 2026-08-29  
-**Environment:** Playwright 1.55, Desktop Chrome and Desktop Firefox
+**Application:** SauceDemo
 
-## Result
+**Base URL:** `https://www.saucedemo.com`
 
-| Metric | Result |
-|---|---:|
-| Total test executions | 64 |
-| Passed | 64 |
-| Failed | 0 |
-| Chromium | 32 / 32 passed |
-| Firefox | 32 / 32 passed |
-| TypeScript validation | Passed (`tsc --noEmit`) |
+**Validation date:** 2026-09-16
 
-## Coverage added
+**Projects:** Desktop Chrome and Desktop Firefox
 
-- Product catalogue and all four sort orders
-- Product detail navigation, add-to-cart, and removal
-- Empty, multi-item, remove-item, and continue-shopping cart flows
-- Checkout required-field validation, order totals, cancellation, post-order return, and PDF download
-- Menu open/close, reset state, logout, and external/social link targets
+## Results
 
-The complete interactive Playwright result is in `playwright-report/index.html` and is included with this change set.
+| Check | Result |
+| --- | --- |
+| `npm install --save-dev ...` | Passed; 106 packages audited, 0 vulnerabilities |
+| `npm run format` | Passed |
+| `npm run lint` | Passed with no errors or warnings |
+| `npm run typecheck` | Passed |
+| `npx playwright test --list` | Passed; 126 executions in 11 files discovered |
+| `npm test` | Passed; 126/126 across Chromium and Firefox in 2.0 minutes |
 
-## QA observations
+## Reproduction
 
-- Reset App State correctly clears the cart and badge. The product action in the already-rendered inventory view can remain visually stale until the view is refreshed; this was treated as an application behaviour observation, while the test verifies the cart state itself.
-- Direct navigation to `/inventory.html` after logout is still possible in the demo application. Confirm whether route protection is a product requirement before treating it as a defect.
+```bash
+npm ci
+npx playwright install
+npm run check
+npm test
+```
+
+For a faster representative check:
+
+```bash
+npm run test:smoke -- --project=chromium
+```
+
+If browser tests fail in another environment, inspect `playwright-report/` and the retained traces in `test-results/` before changing retries or timeouts.

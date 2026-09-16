@@ -6,7 +6,18 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "types": ["node", "@playwright/test"]
   },
-  "include": ["tests", "pages", "test-data", "fixtures.ts", "playwright.config.ts"]
+  "include": [
+    "config",
+    "fixtures",
+    "tests",
+    "pages",
+    "test-data",
+    "playwright.config.ts"
+  ]
 }

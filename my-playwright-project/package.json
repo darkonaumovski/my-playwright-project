@@ -4,13 +4,25 @@
   "private": true,
   "scripts": {
     "test": "playwright test",
+    "test:chromium": "playwright test --project=chromium",
     "test:headed": "playwright test --headed",
+    "test:smoke": "playwright test --grep @smoke",
     "test:ui": "playwright test --ui",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --check \"**/*.{ts,json}\"",
+    "format:fix": "prettier --write \"**/*.{ts,json}\"",
+    "check": "npm run format && npm run lint && npm run typecheck && playwright test --list"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^26.4.0",
-    "typescript": "^5.6.0"
+    "dotenv": "^17.4.2",
+    "eslint": "^10.10.0",
+    "eslint-plugin-playwright": "^2.12.0",
+    "prettier": "^3.9.7",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0"
   }
 }

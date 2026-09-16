@@ -1,92 +1,81 @@
 # Playwright framework architecture
 
-## Review findings
+## Assessment
 
-The original framework had one fixture module and four distinct Page Object classes, rather than duplicate class definitions. Duplication was in how those objects were created and bypassed:
+The repository already had useful page objects, a shared header component, test-scoped fixtures, strict TypeScript, parallel-safe browser contexts, and broad behavior coverage. A wholesale rewrite was not justified.
 
-| Before | Refactor |
-| --- | --- |
-| Seven suites requested a void login fixture through repetitive beforeEach hooks | Authenticated suites import authenticatedTest; login runs once per test |
-| Five suites stored Page Objects in mutable describe-scope variables | Lazy, test-scoped Page Object fixtures |
-| Login navigation/submission/readiness repeated in fixtures and two local helpers | LoginPage.signIn owns the successful-login sequence |
-| Tests repeated menu, cart badge, product detail and checkout selectors | ShopHeader, ProductDetailsPage and expanded existing Page Objects |
-| Product catalogue and demo account data repeated across tests | Shared readonly test-data modules |
-| Two PDF tests independently coordinated download events | CheckoutPage.downloadOrder registers the event before clicking |
+### Critical
 
-The inventory smoke test in users.spec.ts overlaps with the catalogue test. It remains in place to preserve the existing test inventory.
+- `node_modules`, the generated HTML report, and Playwright run state were committed. They are now untracked and covered by `.gitignore`.
 
-## Structure
+### High
+
+- Runtime settings were duplicated across the Playwright config and fixture module. `config/environment.ts` now loads local overrides, validates URL and worker input, and provides one typed source of truth.
+- The root fixture module combined object creation with two nested void login fixtures. `fixtures/index.ts` now exposes one side-effect-free base fixture and one explicit authenticated fixture.
+- Action methods such as checkout completion also performed assertions. Actions and business expectations are now separated.
+- The project had no lint or formatting gate. ESLint now performs type-aware TypeScript analysis plus Playwright-specific reliability checks, and Prettier enforces consistent formatting.
+
+### Medium
+
+- Several controls used test IDs despite having stable accessible roles or placeholders. Login, checkout, product-detail, cart, and navigation controls now use semantic locators where reliable.
+- Cart-badge access leaked through `InventoryPage` even though it belongs to `ShopHeader`. Tests now use the component fixture directly.
+- Repeated checkout customer data is centralized in `test-data/checkout.ts`.
+- CI was forced to one worker and first-attempt local failures had no trace. Workers are now configurable and traces are retained on failure.
+- A positional `.first()` selector in seeded-account coverage was replaced with an intentional product-card filter.
+
+### Optional follow-ups
+
+- Split the broad `additional-*` specifications by business feature if they continue to grow.
+- Add a CI workflow after the team selects GitHub Actions, GitLab, Jenkins, or Azure DevOps.
+- Introduce API clients only when a supported application API exists.
+- Consider sharding after collecting CI duration and flake data; do not optimize from assumptions.
+
+## Structure and responsibilities
 
 ```text
-fixtures.ts                  Test-scoped object construction and authentication
-pages/
-  LoginPage.ts               Raw login controls and successful sign-in
-  InventoryPage.ts           Catalogue, sorting and product actions
-  ProductDetailsPage.ts      Detail-page controls
-  CartPage.ts                Cart navigation and actions
-  CheckoutPage.ts            Information, overview and completion actions
-  components/ShopHeader.ts   Shared menu and cart controls
-test-data/
-  products.ts                Product identity and expected prices
-  users.ts                   Public demo password and accepted accounts
-tests/                       Scenarios and business assertions
-playwright.config.ts         Browser projects, URL and execution settings
+config/                    Validated environment and execution settings
+fixtures/                  Typed test dependencies and authentication lifecycle
+pages/                     Page-level user actions and locators
+pages/components/          Reusable UI sections with a focused responsibility
+test-data/                 Shared immutable expectations and inputs
+tests/                     Arrange/Act/Assert business behavior
+playwright.config.ts       Projects, concurrency, retries, reporters, artifacts
+eslint.config.mjs          Type-aware and Playwright-specific static checks
 ```
 
-Page Objects use composition for shared controls. InventoryPage delegates its existing cart accessors to ShopHeader. A generic BasePage is unnecessary for this framework: the pages have different responsibilities, and sharing a Page constructor alone does not justify inheritance.
+No generic `BasePage` exists because sharing a `Page` constructor alone does not justify inheritance. `ShopHeader` is composed into `InventoryPage` for the `openCart` business action and is independently available as a fixture for header assertions.
 
-## Writing tests
+Folders such as `api/`, `builders/`, `constants/`, and `types/` are deliberately absent. The current suite has no documented service API and no shared domain complexity that would make those layers useful.
 
-Use the authenticated export for ordinary shopping scenarios:
+## Fixture lifecycle
 
-```typescript
-import { authenticatedTest as test, expect } from '../fixtures';
+- Every page object is constructed lazily and scoped to one test.
+- The base `test` export performs no navigation or login.
+- `authenticatedTest` activates an automatic test-scoped login only for suites that opt in.
+- Credentials are an overridable fixture option sourced from validated environment configuration.
+- Worker-scoped authentication and `storageState` are not used because SauceDemo login is fast, the suite validates login behavior directly, and test-scoped state provides clear cart isolation.
 
-test('adds a product to the cart', async ({ inventory, cart, header }) => {
-  await inventory.addProduct('sauce-labs-backpack');
-  await header.openCart();
-  await expect(cart.cartItems).toHaveCount(1);
-});
-```
+## Selector policy
 
-Use the guest export for login, protected-route and explicit account scenarios:
+Semantic locators are preferred in this order: role, label, placeholder, meaningful text, and test ID. SauceDemo does not label every control, so stable `data-test` selectors remain in places such as product rows, cart badges, totals, and product-specific add/remove buttons. CSS is limited to intentional document-level checks where no user-facing locator exists.
 
-```typescript
-import { test, expect } from '../fixtures';
-import { demoPassword } from '../test-data/users';
+## Reliability policy
 
-test('shows the locked-account error', async ({ login }) => {
-  await login.goto();
-  await login.login('locked_out_user', demoPassword);
-  await expect(login.errorMessage).toContainText('locked out');
-});
-```
+- No fixed waits or forced clicks.
+- Web-first assertions remain in tests.
+- Download listeners are registered before clicks with `Promise.all`.
+- Retries are CI-only and are not used to mask local failures.
+- Failed attempts retain traces, screenshots, and video.
+- Tests are fully parallel and use isolated browser contexts.
+- A single scenario-specific timeout remains for SauceDemo's intentionally slow `performance_glitch_user`.
 
-Constructing or requesting a Page Object does not navigate. The guest export only logs in if a test explicitly requests loggedInPage. The authenticated export activates that same fixture automatically. Playwright resolves its dependencies once per test, so requesting loggedInPage as well does not log in twice.
+## Refactoring phases
 
-Authenticated credentials retain the TEST_USERNAME and TEST_PASSWORD environment defaults and can be overridden with test.use({ credentials: { username, password } }). Seeded-account tests continue to select their exact public demo credentials explicitly.
+1. Repository hygiene and baseline discovery.
+2. Runtime configuration and fixture consolidation.
+3. Representative POM and selector cleanup.
+4. Test assertion ownership and duplicated-data cleanup.
+5. Static quality gates and documentation.
+6. Browser verification against the live application.
 
-All objects use the test's isolated page/context. The two-context isolation scenario deliberately constructs objects for its own pages and closes both contexts in finally. No shared storage state or worker-level login was introduced, preserving cart isolation and UI login coverage.
-
-Keep business expectations in tests; reuse Page Object locators and actions. Direct page access remains appropriate for route assertions, viewport inspection, keyboard focus and scoped product-row checks. Keep checkout validation fields individually accessible. enterInformation fills without submitting; the existing fillInformation method still fills and submits.
-
-## Compatibility
-
-Existing Page Object class names, constructors and methods remain available. In particular, InventoryPage.addProductToCart still accepts a full test ID, while the new addProduct accepts a product slug. LoginPage.login still only submits the current form. The original loggedInPage fixture remains supported.
-
-All 63 scenarios and both browser projects are retained, for 126 executions. No test was removed, skipped or marked as an expected failure; assertions and account-specific expectations were preserved. The refactor does not change dependencies, browser configuration, retries or timeouts.
-
-## Validation
-
-Executed on 2026-09-05 against https://www.saucedemo.com:
-
-- `npm run typecheck`: passed.
-- `tsc --noEmit --noUnusedLocals --noUnusedParameters`: passed.
-- Full suite with four workers: **126 passed (1.5 minutes)**, 63 each in Chromium and Firefox, with no retries or skips.
-- Before/after discovery: identical test names and browser projects (126 executions).
-- All existing assertion matchers and expected arguments preserved across the 11 spec files.
-- `git diff --check`: passed.
-
-HTML report: [Refactor test run](playwright-report/refactor/index.html). This uses a separate output folder so the existing tracked report is not overwritten. The report is generated output and remains ignored by Git.
-
-The migration exposed a missing fixture parameter during TypeScript validation; it was corrected before the browser run. No browser-test failures remained.
+All phases are implemented. The final four-worker Chromium and Firefox matrix passed all 126 executions; see `TEST_EXECUTION_REPORT.md`.
